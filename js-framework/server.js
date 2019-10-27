@@ -8,7 +8,7 @@ function Server(socket, type='LAN', ssid=null, password=null) {
         if (process.platform != 'darwin') {
             throw "This os cannot host as server.";
         }
-        if (ssid == null && password == null) {
+        if (ssid == null || password == null) {
             throw "No name/password provided for ad-hoc network.";
         }
         cmdStr = './js-framework/adhoc-network ' + ssid + ' ' + password;
