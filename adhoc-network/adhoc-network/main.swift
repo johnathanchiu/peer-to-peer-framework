@@ -27,7 +27,7 @@ if let iface = CWWiFiClient.shared().interface() {
             security: CWIBSSModeSecurity.WEP104,
             channel: 11,
             password: password as String)
-    } catch let _ as NSError {
+    } catch _ as NSError {
         exit(1)
     }
 } else {
