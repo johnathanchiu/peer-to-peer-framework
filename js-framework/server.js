@@ -1,9 +1,9 @@
 const os = require('os');
 const net = require('net');
-
+var wifi = require('node-wifi');
 const { exec, spawn } = require('child_process');
 
-function Server(socket, type='ADHOC', ssid=null, password=null) {
+function Server(socket, type='LAN', ssid=null, password=null) {
     if (type == 'ADHOC') {
         if (process.platform != 'darwin') {
             throw "This os cannot host as server.";
@@ -19,32 +19,52 @@ function Server(socket, type='ADHOC', ssid=null, password=null) {
         });
     } else {
         if (type != 'LAN') {
-            throw "Unidentified method of networking (Use either \'LAN\' or \'ADHOC\')";
+            throw "Unidentified method of networking (Use either \'LAN\' or \'ADHOC\').";
             process.exit(0);
         }
     }
     this.sock = socket;
     this.server = net.createServer();
-
+    this.LAN = (type == 'ADHOC');
+    wifi.init({ iface: null });
 }
 
 Server.prototype.listen = function () {
-    var interfaces = os.networkInterfaces();
-    var addresses = [];
-    for (var k in interfaces) {
-        for (var k2 in interfaces[k]) {
-            var address = interfaces[k][k2];
-            if (address.family === 'IPv4' && !address.internal) {
-                addresses.push(address.address);
+    var ref = this;
+    function beginListener(instance) {
+        var interfaces = os.networkInterfaces();
+        var addresses = [];
+        for (var k in interfaces) {
+            for (var k2 in interfaces[k]) {
+                var address = interfaces[k][k2];
+                if (address.family === 'IPv4' && !address.internal) {
+                    addresses.push(address.address);
+                }
             }
         }
+        if (addresses.length < 1) {
+            return 0;
+        }
+        instance.ip = addresses[0];
+        console.log(instance.ip);
+        instance.server.listen(instance.sock, instance.ip);
+        return 1;
     }
-    if (addresses.length < 1) {
-        throw "Failed to find ip for server.";
+
+    function ensureConnectivity() {
+        var awaitConn = new Promise(function (resolve, reject) {
+            setTimeout(function () { resolve(ref); }, 3000);
+        });
+        awaitConn.then(function (reference) {
+            var success = beginListener(reference);
+            if (success == 1) {
+                return;
+            } else {
+                ensureConnectivity();
+            }
+        });
     }
-    this.ip = addresses[0];
-    this.server.listen(this.sock, this.ip);
-    this.server.on('connection');
+    ensureConnectivity();
 }
 
 Server.prototype.setConnHandler = function (connHandler) {
@@ -56,42 +76,47 @@ Server.prototype.setCloseHandler = function (closeHandler=null) {
         if (closeHandler != null) {
             closeHandler();
         }
-        cmdStr = './js-framework/adhoc-kill';
-        exec(cmdStr, (err, stdout, stderr) => {
-            if (err) {
-                console.log(stderr);
-            }
-        });
     });
 }
 
-Server.prototype.destroy = function () {
+Server.prototype.destroy = function (endAll=false) {
     this.server.getConnections(function (err, count) { this.globalConns = count; });
     if (this.globalConns > 0) {
         throw "Cannot close server til all clients are removed.";
     }
-    // Pass a timeout to ensure network is created before removing conn.
-    var ref = this.server;
-    var ensureConn = new Promise(function (resolve, reject) {
-        setTimeout(function () { resolve(ref); } , 7000);
+    this.server.close();
+    console.log("Destroying ad-hoc network.");
+
+    cmdStr = './js-framework/adhoc-kill';
+    exec(cmdStr, (err, stdout, stderr) => {
+        if (err) {
+            console.log(stderr);
+        }
     });
-    ensureConn.then(function (reference) { reference.close(); });
+
+    if (endAll) {
+        process.exit();
+    }
 }
 
-Server.prototype.write = function (data, writeHandler=null) {
+Server.prototype.write = function (data, writeHandler) {
     var success = false;
     try {
-        if (writeHandler) {
-            success = this.server.write(data, writeHandler);
-        } else {
-            success = this.server.write(data);
-        }
+        success = this.server.write(data, writeHandler);
     } catch (e) {
         console.log(e);
     }
     if (!successs) {
         throw "Unable to successfully write data to clients.";
     }
+}
+
+Server.prototype.invokeKillHandler = function () {
+    var self = this;
+    process.on('SIGINT', function() {
+        console.log("Closing socket.");
+        self.destroy(endAll=true);
+    });
 }
 
 module.exports = Server;
