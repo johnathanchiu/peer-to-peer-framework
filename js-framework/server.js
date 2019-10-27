@@ -1,6 +1,5 @@
 const os = require('os');
 const net = require('net');
-var wifi = require('node-wifi');
 const { exec, spawn } = require('child_process');
 
 function Server(socket, type='LAN', ssid=null, password=null) {
@@ -26,7 +25,6 @@ function Server(socket, type='LAN', ssid=null, password=null) {
     this.sock = socket;
     this.server = net.createServer();
     this.LAN = (type == 'ADHOC');
-    wifi.init({ iface: null });
 }
 
 Server.prototype.listen = function () {
