@@ -1,27 +1,31 @@
 const os = require('os');
 const net = require('net');
 
-
 const { exec, spawn } = require('child_process');
 
-
-function Server(type, socket, ssid=null, password=null) {
-    if (type == 'P2P' && ) {
+function Server(socket, type='ADHOC', ssid=null, password=null) {
+    if (type == 'ADHOC') {
         if (process.platform != 'darwin') {
             throw "This os cannot host as server.";
         }
         if (ssid == null && password == null) {
             throw "No name/password provided for ad-hoc network.";
         }
-        cmdStr = './adhoc-network ' + ssid + ' ' + password;
+        cmdStr = './js-framework/adhoc-network ' + ssid + ' ' + password;
         exec(cmdStr, (err, stdout, stderr) => {
             if (err) {
                 console.log(stderr);
             }
         });
+    } else {
+        if (type != 'LAN') {
+            throw "Unidentified method of networking (Use either \'LAN\' or \'ADHOC\')";
+            process.exit(0);
+        }
     }
-    this.server = net.createServer();
     this.sock = socket;
+    this.server = net.createServer();
+
 }
 
 Server.prototype.listen = function () {
@@ -47,29 +51,31 @@ Server.prototype.setConnHandler = function (connHandler) {
     this.server.on('connection', connHandler);
 }
 
-Server.prototype.destroy = function (closeHandler=null) {
-    if (this.server.getConnections() > 0) {
+Server.prototype.setCloseHandler = function (closeHandler=null) {
+    this.server.on('close', function () {
+        if (closeHandler != null) {
+            closeHandler();
+        }
+        cmdStr = './js-framework/adhoc-kill';
+        exec(cmdStr, (err, stdout, stderr) => {
+            if (err) {
+                console.log(stderr);
+            }
+        });
+    });
+}
+
+Server.prototype.destroy = function () {
+    this.server.getConnections(function (err, count) { this.globalConns = count; });
+    if (this.globalConns > 0) {
         throw "Cannot close server til all clients are removed.";
     }
-    if (closeHandler === null) {
-        this.server.on('close', function () {
-            cmdStr = './adhoc-kill';
-            exec(cmdStr, (err, stdout, stderr) => {
-                if (err) {
-                    console.log(stderr);
-                }
-            });
-            exit();
-        }
-    }
-    this.server.on('close', closeHandler);
-    cmdStr = './adhoc-kill';
-    exec(cmdStr, (err, stdout, stderr) => {
-        if (err) {
-            console.log(stderr);
-        }
+    // Pass a timeout to ensure network is created before removing conn.
+    var ref = this.server;
+    var ensureConn = new Promise(function (resolve, reject) {
+        setTimeout(function () { resolve(ref); } , 7000);
     });
-    exit();
+    ensureConn.then(function (reference) { reference.close(); });
 }
 
 Server.prototype.write = function (data, writeHandler=null) {
@@ -87,3 +93,5 @@ Server.prototype.write = function (data, writeHandler=null) {
         throw "Unable to successfully write data to clients.";
     }
 }
+
+module.exports = Server;

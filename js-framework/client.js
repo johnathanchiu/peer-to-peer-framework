@@ -49,5 +49,6 @@ Client.prototype.setCloseHandler = function (closeHandler) {
 			console.log(stderr);
 		}
 	});
-
 }
+
+module.exports = Client;
