@@ -1,2 +1,6 @@
-test_files/*
+test-files/*
 node_modules/*
+
+adhoc-kill/adhoc-kill.xcodeproj/project.xcworkspace/xcuserdata/*
+adhoc-network/adhoc-network.xcodeproj/project.xcworkspace/xcuserdata/*
+
