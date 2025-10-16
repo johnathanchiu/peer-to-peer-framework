@@ -1,0 +1,1 @@
+(10/16/2025) This was just spinning up a network on one laptop device (acting as a server) and connecting with another laptop. Kinda a dumb approach lol but was playing around with stuff back in the uni days.
